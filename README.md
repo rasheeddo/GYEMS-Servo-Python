@@ -2,7 +2,7 @@
 
 This is a python version from [this repo](https://github.com/rasheeddo/GYEMS-Servo). For more detail about config the servo, please follow the process in that repo.
 
-![](images/servo.png)
+![](image/servo.png)
 
 # Hardware
 1. GYEMS servo motor
@@ -12,7 +12,7 @@ This is a python version from [this repo](https://github.com/rasheeddo/GYEMS-Ser
 
 From above hardware, we just make some cable between USB-RS485 module to servo and plug to the Jetson Nano like this figure.
 
-![](images/wiring.PNG)
+![](image/wiring.PNG)
 
 # Single Example
 
@@ -53,7 +53,7 @@ You can uncomment and test each control mode.
 # Multiple Servo Example
 Due to the communication is RS485, so we can jump the A-B wires to next servo and set with different ID. The wiring can be found from here
 
-![](images/multipleservo.PNG)
+![](image/multipleservo.PNG)
 
 ```
 GY = GYEMS(1)  # create an object with servo ID 1
