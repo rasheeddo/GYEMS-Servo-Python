@@ -14,7 +14,7 @@ From above hardware, we just make some cable between USB-RS485 module to servo a
 
 ![](image/wiring.PNG)
 
-# Single Example
+# Single Servo Example
 
 Let take a look on some example in the repo, for example, examplePositionControl.py.
 ```
