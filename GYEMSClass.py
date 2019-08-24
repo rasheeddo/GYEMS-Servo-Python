@@ -12,13 +12,12 @@ import serial.rs485
 
 class GYEMS:
 
-	def __init__(self,ServoId):
+	def __init__(self):
 
 		# Using serial.rs485 library
 		self.ser = serial.rs485.RS485("/dev/ttyUSB0", baudrate=115200)		# baudrate must be same as in "RMD-L config V1.1" software
 		self.ser.rs485_mode = serial.rs485.RS485Settings(rts_level_for_tx=True, rts_level_for_rx=False, loopback=False, delay_before_tx=None, delay_before_rx=None)
 
-		self.ID = ServoId
 		self.Header = 0x3E
 
 		# Initial value for estimating speed
@@ -73,12 +72,12 @@ class GYEMS:
 		rts_level_for_tx = False
 		rts_level_for_rx = True
 
-	def GetCurrentDeg(self):
+	def GetCurrentDeg(self,ID):
 
 		# Constant value
 		EncoderCom = 0x90
 		EncoderComDataLength = 0x00
-		_ID = self.ID
+		_ID = ID
 		FrameCheckSum = self.Header + EncoderCom + EncoderComDataLength + _ID
 
 		# Construct each hexadecimal byte into single string list
@@ -98,10 +97,10 @@ class GYEMS:
 
 		return Degree
 
-	def EstimateDPS(self):
+	def EstimateDPS(self,ID):
 
 		# get instantenuous angle and time
-		theta2 = self.GetCurrentDeg()
+		theta2 = self.GetCurrentDeg(ID)
 		t2 = time.time()
 
 		# find the different of time and angle
@@ -121,13 +120,13 @@ class GYEMS:
 
 		return CurrentDPS
 
-	def GetAverageSpeed(self):
+	def GetAverageSpeed(self,ID):
 
 		# a sample is total number for doing average
 		sampler = 100
 		# doing an average
 		for i in range(0,sampler):
-			Speed = self.EstimateDPS()
+			Speed = self.EstimateDPS(ID)
 
 			if i == 0:
 				AccumSpeed = Speed
@@ -141,12 +140,12 @@ class GYEMS:
 
 		return aveDPS
 
-	def MotorOff(self):
+	def MotorOff(self,ID):
 
 		# Constant value
 		OffCom = 0x80
 		OffComDataLength = 0x00
-		_ID = self.ID
+		_ID = ID
 		DataCheckByte = self.Header + OffCom + _ID + OffComDataLength
 
 		# Construct each hexadecimal byte into single string list
@@ -155,12 +154,12 @@ class GYEMS:
 		# Write data out to usb port
 		self.WriteData(OffComString)
 
-	def MotorStop(self):
+	def MotorStop(self,ID):
 
 		# Constant value
 		StopCom = 0x81
 		StopComDataLength = 0x00
-		_ID = self.ID
+		_ID = ID
 		DataCheckByte = self.Header + StopCom + _ID + StopComDataLength
 
 		# Construct each hexadecimal byte into single string list
@@ -169,12 +168,12 @@ class GYEMS:
 		# Write data out to usb port
 		self.WriteData(StopComString)
 
-	def MotorRun(self):
+	def MotorRun(self,ID):
 
 		# Constant value
 		RunCom = 0x88
 		RunComDataLength = 0x00
-		_ID = self.ID
+		_ID = ID
 		DataCheckByte = self.Header + RunCom + _ID + RunComDataLength
 
 		# Construct each hexadecimal byte into single string list
@@ -184,13 +183,13 @@ class GYEMS:
 		self.WriteData(RunComString)
 
 
-	def SpeedControl(self,DPS):
+	def SpeedControl(self,ID,DPS):
 
 		# Constant value
-		SpeedLSB = DPS*100
+		SpeedLSB = int(DPS*100.0)
 		SpeedCom = 0xA2			# Convert hex to ascii
 		SpeedComDataLength = 0x04
-		_ID = self.ID
+		_ID = ID
 		FrameCheckSum = self.Header + SpeedCom + SpeedComDataLength + _ID
 
 		SpeedByte = self.SplitTo4Byte(SpeedLSB)
@@ -211,13 +210,13 @@ class GYEMS:
 		# Write data out to usb port
 		self.WriteData(SpeedComString)
 		
-	def PositionControlMode1(self,Deg):
+	def PositionControlMode1(self,ID,Deg):
 
 		# Constant value
-		DegLSB = Deg*100
+		DegLSB = int(Deg*100.0)
 		Position1Com = 0xA3
 		Position1DataLength = 0x08
-		_ID = self.ID
+		_ID = ID
 		FrameCheckSum = self.Header + Position1Com + Position1DataLength + _ID
 
 		Position1Byte = self.SplitTo8Byte(DegLSB)
@@ -233,15 +232,15 @@ class GYEMS:
 		# Write data out to usb port
 		self.WriteData(PosCom1String)
 
-	def PositionControlMode2(self,Deg,DPS):
+	def PositionControlMode2(self,ID,Deg,DPS):
 
 		# Constant value
-		DegLSB = Deg*100
-		SpeedLSB = DPS*100
+		DegLSB = int(Deg*100.0)
+		SpeedLSB = int(DPS*100.0)
 
 		Position2Com = 0xA4
 		Position2DataLength = 0x0C
-		_ID = self.ID
+		_ID = ID
 		FrameCheckSum = self.Header + Position2Com + Position2DataLength + _ID
 
 		Position2Byte = self.SplitTo8Byte(DegLSB)
@@ -259,13 +258,13 @@ class GYEMS:
 		# Write data out to usb port
 		self.WriteData(PosCom2String)
 
-	def PositionControlMode3(self,Deg,Direction):
+	def PositionControlMode3(self,ID,Deg,Direction):
 
 		# Constant value
-		DegLSB = Deg*100
+		DegLSB = int(Deg*100.0)
 		Position3Com = 0xA5
 		Position3DataLength = 0x04
-		_ID = self.ID
+		_ID = ID
 		FrameCheckSum = self.Header + Position3Com + Position3DataLength + _ID
 
 		Position3Byte = self.SplitTo4Byte(DegLSB)
@@ -280,15 +279,15 @@ class GYEMS:
 		# Write data out to usb port
 		self.WriteData(PosCom3String)
 
-	def PositionControlMode4(self,Deg,DPS,Direction):
+	def PositionControlMode4(self,ID,Deg,DPS,Direction):
 
 		# Constant value
-		DegLSB = Deg*100
-		SpeedLSB = DPS*100
+		DegLSB = int(Deg*100.0)
+		SpeedLSB = int(DPS*100.0)
 
 		Position4Com = 0xA6
 		Position4DataLength = 0x08
-		_ID = self.ID
+		_ID = ID
 		FrameCheckSum = self.Header + Position4Com + Position4DataLength + _ID
 
 		Position4Byte = self.SplitTo4Byte(DegLSB)
