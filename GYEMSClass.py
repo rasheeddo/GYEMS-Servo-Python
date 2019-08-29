@@ -9,10 +9,13 @@
 import serial
 import time
 import serial.rs485
+import sys
 
 class GYEMS:
 
 	def __init__(self):
+
+		self.ver = sys.version_info[0]
 
 		# Using serial.rs485 library
 		self.ser = serial.rs485.RS485("/dev/ttyUSB0", baudrate=115200)		# baudrate must be same as in "RMD-L config V1.1" software
@@ -72,6 +75,9 @@ class GYEMS:
 		rts_level_for_tx = False
 		rts_level_for_rx = True
 
+		readEncoder = [None]*8
+		readEncoder = self.ser.read(8)
+
 	def GetCurrentDeg(self,ID):
 
 		# Constant value
@@ -81,17 +87,30 @@ class GYEMS:
 		FrameCheckSum = self.Header + EncoderCom + EncoderComDataLength + _ID
 
 		# Construct each hexadecimal byte into single string list
-		EncoderComString = str(bytearray([chr(self.Header),chr(EncoderCom),chr(_ID),chr(EncoderComDataLength),chr(FrameCheckSum)]))
+		if self.ver == 2:
+			EncoderComString = str(bytearray([chr(self.Header),chr(EncoderCom),chr(_ID),chr(EncoderComDataLength),chr(FrameCheckSum)]))
+		else:
+			EncoderComString = bytearray([self.Header,EncoderCom,_ID,EncoderComDataLength,FrameCheckSum])
 
 		# Write data out to usb port
-		self.WriteData(EncoderComString)
+		#self.WriteData(EncoderComString)
+		rts_level_for_tx = True
+		rts_level_for_rx = False
+		self.ser.write(EncoderComString) # write a string byte out to USB port
+		self.ser.flush()				 # wait until finish writing
+		# Set an RTS line to receive data
+		rts_level_for_tx = False
+		rts_level_for_rx = True
 
 		# Read a reply from servo
 		readEncoder = [None]*8
 		readEncoder = self.ser.read(8)
 
 		# Combine byte data 5 and 6 into a single word (16bit encoder data)
-		RawAngle = self.Combine2Byte(ord(readEncoder[5]),ord(readEncoder[6]))
+		if self.ver == 2:
+			RawAngle = self.Combine2Byte(ord(readEncoder[5]),ord(readEncoder[6]))
+		else:
+			RawAngle = self.Combine2Byte(readEncoder[5],readEncoder[6])
 		# map 16 bit data to degree value
 		Degree = self.map(RawAngle,0,16383,0.0,360.0); 
 
@@ -149,7 +168,10 @@ class GYEMS:
 		DataCheckByte = self.Header + OffCom + _ID + OffComDataLength
 
 		# Construct each hexadecimal byte into single string list
-		OffComString = str(bytearray([chr(self.Header),chr(OffCom),chr(_ID),chr(OffComDataLength),chr(DataCheckByte)]))
+		if self.ver == 2:
+			OffComString = str(bytearray([chr(self.Header),chr(OffCom),chr(_ID),chr(OffComDataLength),chr(DataCheckByte)]))
+		else:
+			OffComString = bytearray([self.Header,OffCom,_ID,OffComDataLength,DataCheckByte])
 
 		# Write data out to usb port
 		self.WriteData(OffComString)
@@ -163,8 +185,11 @@ class GYEMS:
 		DataCheckByte = self.Header + StopCom + _ID + StopComDataLength
 
 		# Construct each hexadecimal byte into single string list
-		StopComString = str(bytearray([chr(self.Header),chr(StopCom),chr(_ID),chr(StopComDataLength),chr(DataCheckByte)]))
-		
+		if self.ver == 2:
+			StopComString = str(bytearray([chr(self.Header),chr(StopCom),chr(_ID),chr(StopComDataLength),chr(DataCheckByte)]))
+		else:
+			StopComString = bytearray([self.Header,StopCom,_ID,StopComDataLength,DataCheckByte])
+
 		# Write data out to usb port
 		self.WriteData(StopComString)
 
@@ -177,7 +202,10 @@ class GYEMS:
 		DataCheckByte = self.Header + RunCom + _ID + RunComDataLength
 
 		# Construct each hexadecimal byte into single string list
-		RunComString = str(bytearray([chr(self.Header),chr(RunCom),chr(_ID),chr(RunComDataLength),chr(DataCheckByte)]))
+		if self.ver == 2:
+			RunComString = str(bytearray([chr(self.Header),chr(RunCom),chr(_ID),chr(RunComDataLength),chr(DataCheckByte)]))
+		else:
+			RunComString = bytearray([self.Header,RunCom,_ID,RunComDataLength,DataCheckByte])
 
 		# Write data out to usb port
 		self.WriteData(RunComString)
@@ -200,12 +228,13 @@ class GYEMS:
 		# For python3, bytearray([data1,data2,data3,...])
 
 		# Construct each hexadecimal byte into single string list
-		SpeedComString = str(bytearray([chr(self.Header),chr(SpeedCom),chr(_ID),chr(SpeedComDataLength),chr(FrameCheckSum),
-						chr(SpeedByte[3]),chr(SpeedByte[2]),chr(SpeedByte[1]),chr(SpeedByte[0]),chr(DataCheckByte)]))
-		'''
-		SpeedComString = bytearray([Header,SpeedCom,_ID,SpeedComDataLength,FrameCheckSum,
-						SpeedByte[3],SpeedByte[2],SpeedByte[1],SpeedByte[0],DataCheckByte])
-		'''
+		if self.ver == 2:
+			SpeedComString = str(bytearray([chr(self.Header),chr(SpeedCom),chr(_ID),chr(SpeedComDataLength),chr(FrameCheckSum),
+							chr(SpeedByte[3]),chr(SpeedByte[2]),chr(SpeedByte[1]),chr(SpeedByte[0]),chr(DataCheckByte)]))
+		else:
+			SpeedComString = bytearray([self.Header,SpeedCom,_ID,SpeedComDataLength,FrameCheckSum,
+							SpeedByte[3],SpeedByte[2],SpeedByte[1],SpeedByte[0],DataCheckByte])
+		
 
 		# Write data out to usb port
 		self.WriteData(SpeedComString)
@@ -225,9 +254,13 @@ class GYEMS:
 		DataCheckByte = DataCheckByte & 0x00FF   # eliminate the second byte, only need 1 byte 
 
 		# Construct each hexadecimal byte into single string list
-		PosCom1String = str(bytearray([chr(self.Header),chr(Position1Com),chr(_ID),chr(Position1DataLength),chr(FrameCheckSum),
-					chr(Position1Byte[7]),chr(Position1Byte[6]),chr(Position1Byte[5]),chr(Position1Byte[4]),
-					chr(Position1Byte[3]),chr(Position1Byte[2]),chr(Position1Byte[1]),chr(Position1Byte[0]),chr(DataCheckByte)]))
+		if self.ver == 2:
+			PosCom1String = str(bytearray([chr(self.Header),chr(Position1Com),chr(_ID),chr(Position1DataLength),chr(FrameCheckSum),
+						chr(Position1Byte[7]),chr(Position1Byte[6]),chr(Position1Byte[5]),chr(Position1Byte[4]),
+						chr(Position1Byte[3]),chr(Position1Byte[2]),chr(Position1Byte[1]),chr(Position1Byte[0]),chr(DataCheckByte)]))
+		else:
+			PosCom1String = bytearray([self.Header,Position1Com,_ID,Position1DataLength,FrameCheckSum,Position1Byte[7],Position1Byte[6],
+				Position1Byte[5],Position1Byte[4],Position1Byte[3],Position1Byte[2],Position1Byte[1],Position1Byte[0],DataCheckByte])
 
 		# Write data out to usb port
 		self.WriteData(PosCom1String)
@@ -250,10 +283,16 @@ class GYEMS:
 		DataCheckByte = DataCheckByte & 0x000000FF   # eliminate the second byte, only need 1 byte 
 
 		# Construct each hexadecimal byte into single string list
-		PosCom2String = str(bytearray([chr(self.Header),chr(Position2Com),chr(_ID),chr(Position2DataLength),chr(FrameCheckSum),
-					chr(Position2Byte[7]),chr(Position2Byte[6]),chr(Position2Byte[5]),chr(Position2Byte[4]),
-					chr(Position2Byte[3]),chr(Position2Byte[2]),chr(Position2Byte[1]),chr(Position2Byte[0]),
-					chr(Speed2Byte[3]),chr(Speed2Byte[2]),chr(Speed2Byte[1]),chr(Speed2Byte[0]),chr(DataCheckByte)]))
+		if self.ver == 2:
+			PosCom2String = str(bytearray([chr(self.Header),chr(Position2Com),chr(_ID),chr(Position2DataLength),chr(FrameCheckSum),
+						chr(Position2Byte[7]),chr(Position2Byte[6]),chr(Position2Byte[5]),chr(Position2Byte[4]),
+						chr(Position2Byte[3]),chr(Position2Byte[2]),chr(Position2Byte[1]),chr(Position2Byte[0]),
+						chr(Speed2Byte[3]),chr(Speed2Byte[2]),chr(Speed2Byte[1]),chr(Speed2Byte[0]),chr(DataCheckByte)]))
+		else:
+			PosCom2String = bytearray([self.Header,Position2Com,_ID,Position2DataLength,FrameCheckSum,Position2Byte[7],Position2Byte[6],
+				Position2Byte[5],Position2Byte[4],Position2Byte[3],Position2Byte[2],Position2Byte[1],Position2Byte[0], Speed2Byte[3],
+				Speed2Byte[2],Speed2Byte[1],Speed2Byte[0],DataCheckByte])
+
 
 		# Write data out to usb port
 		self.WriteData(PosCom2String)
@@ -273,8 +312,12 @@ class GYEMS:
 		DataCheckByte = DataCheckByte & 0x00FF   # eliminate the second byte, only need 1 byte 
 
 		# Construct each hexadecimal byte into single string list
-		PosCom3String = str(bytearray([chr(self.Header),chr(Position3Com),chr(_ID),chr(Position3DataLength),chr(FrameCheckSum),
-						chr(Direction),chr(Position3Byte[3]),chr(Position3Byte[2]),chr(Position3Byte[1]),chr(DataCheckByte)]))
+		if self.ver == 2:
+			PosCom3String = str(bytearray([chr(self.Header),chr(Position3Com),chr(_ID),chr(Position3DataLength),chr(FrameCheckSum),
+							chr(Direction),chr(Position3Byte[3]),chr(Position3Byte[2]),chr(Position3Byte[1]),chr(DataCheckByte)]))
+		else:
+			PosCom3String = bytearray([self.Header,Position3Com,_ID,Position3DataLength,FrameCheckSum,Direction,
+							Position3Byte[3],Position3Byte[2],Position3Byte[1],DataCheckByte])
 
 		# Write data out to usb port
 		self.WriteData(PosCom3String)
@@ -297,9 +340,13 @@ class GYEMS:
 		DataCheckByte = DataCheckByte & 0x000000FF   # eliminate the second byte, only need 1 byte 
 
 		# Construct each hexadecimal byte into single string list
-		PosCom4String = str(bytearray([chr(self.Header),chr(Position4Com),chr(_ID),chr(Position4DataLength),chr(FrameCheckSum),
-						chr(Direction),chr(Position4Byte[3]),chr(Position4Byte[2]),chr(Position4Byte[1]),
-						chr(Speed4Byte[3]),chr(Speed4Byte[2]),chr(Speed4Byte[1]),chr(Speed4Byte[0]),chr(DataCheckByte)]))
-		
+		if self.ver == 2:
+			PosCom4String = str(bytearray([chr(self.Header),chr(Position4Com),chr(_ID),chr(Position4DataLength),chr(FrameCheckSum),
+							chr(Direction),chr(Position4Byte[3]),chr(Position4Byte[2]),chr(Position4Byte[1]),
+							chr(Speed4Byte[3]),chr(Speed4Byte[2]),chr(Speed4Byte[1]),chr(Speed4Byte[0]),chr(DataCheckByte)]))
+		else:
+			PosCom4String = bytearray([self.Header,Position4Com,_ID,Position4DataLength,FrameCheckSum,Direction,Position4Byte[3],
+							Position4Byte[2],Position4Byte[1],Speed4Byte[3],Speed4Byte[2],Speed4Byte[1],Speed4Byte[0],DataCheckByte])
+
 		# Write data out to usb port
 		self.WriteData(PosCom4String)
