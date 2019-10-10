@@ -14,6 +14,9 @@ From above hardware, we just make some cable between USB-RS485 module to servo a
 
 ![](image/wiring.PNG)
 
+# Install
+This servo API use pyserial for communication and also the script can work with python2 and 3 version. So first let install pyserial by hit this command on the terminal `python -m pip install pyserial` and `python -m pip3 install pyserial`. Note, you should have pip installed before. Then try run some example, if you have a promble about Permission to use USB0 device, you can add user by hit this command `sudo adduser second_user dialout`, replace `second_user` with your current username.
+
 # Single Servo Example
 
 Let take a look on some example in the repo, for example, examplePositionControl.py.
